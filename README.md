@@ -1,81 +1,79 @@
-# Tiled-SIMD-GEMV 🚀
+# Tiled-SIMD-Matrix-Engine 🚀
 
-A high-performance **General Matrix-Vector Multiplication (GEMV)** engine implemented in C++20. This project demonstrates how to bypass the "memory wall" by utilizing SIMD vectorization, cache-friendly tiling, and asynchronous double-buffering.
-
----
-
-## 🛠 Features
-
-* **SIMD Vectorization:** Uses `AVX2` and `FMA` (Fused Multiply-Add) intrinsics to process 8 floating-point operations in a single CPU cycle.
-* **Hardware-Inspired Tiling:** Processes the matrix in $16 \times 256$ tiles, simulating on-chip SRAM storage to maximize cache locality.
-* **Double Buffering (DMA Simulation):** Implements a multi-buffered architecture where the next data tile is pre-fetched (simulated DMA) while the current tile is being computed.
-* **Multi-Threaded Execution:** A thread-safe `ParallelExecutor` distributes matrix rows across all available CPU cores without shared-state contention (Lock-free row partitioning).
-* **Robust Fringe (Tail) Handling:** Capable of processing matrices of **any arbitrary size**. The engine dynamically calculates safe tile dimensions (`valid_h`, `valid_w`), uses SIMD for the largest possible multiple of 8, and falls back to a highly optimized **Scalar Epilogue** for the remainder to prevent out-of-bounds memory access without padding overhead.
-* **Strategy Pattern Architecture:** Easily switch between `Naive` and `SIMD` execution modes to benchmark the performance gains.
+A high-performance linear algebra acceleration library in C++20. This project demonstrates the evolution of optimizing matrix operations, moving from **Matrix-Vector (GEMV)** to **Matrix-Matrix (GEMM)** multiplication by bypassing the "memory wall" using SIMD, tiling, and software-managed memory.
 
 ---
 
 ## 🏗 System Architecture
 
-The project is built on the concept of **Software-Managed Memory**:
+The project implements **Software-Managed Memory** concepts:
+1. **DDR (Main Memory):** Large, high-latency storage.
+2. **SRAM (Local Buffers):** Fast, tiled buffers simulating on-chip memory.
+3. **Compute Kernels:** Hand-optimized AVX2/FMA routines.
+4. **Execution Engine:** A lock-free `ParallelExecutor` for multi-threaded scaling.
 
-1.  **DDR (Main Memory):** Large, slow storage where the matrix resides.
-2.  **SRAM (WeightLoader):** A simulated fast local buffer that stores current and next tiles.
-3.  **Compute Unit:** An optimized kernel that performs dot products using `__m256` registers.
-4.  **Double Buffering:** The `WeightLoader` uses atomic state transitions (`FREE`, `LOADING`, `READY`, `COMPUTE`) to overlap I/O with computation.
+---
+
+## 🔹 Phase 1: Matrix-Vector Multiplication (GEMV)
+
+Focuses on real-time streaming of weights using asynchronous double-buffering.
+
+### GEMV Features:
+* **Double Buffering:** Overlaps I/O (loading tiles) with computation.
+* **SIMD & FMA:** Processes 8 floats per cycle using `AVX2`.
+* **Robust Tail Handling:** Supports any matrix dimension without padding.
+
+### GEMV Performance:
+**Matrix Size:** $10013 \times 12452$ | **CPU Cores:** 4
+
+| Implementation | Execution Time | Speedup |
+| :--- | :--- | :--- |
+| Naive (1 Thread) | 188.86 ms | 1.00x |
+| SIMD (1 Thread) | 93.17 ms | ~2.03x |
+| SIMD (4 Threads) | 54.40 ms | **~3.47x** |
+
+---
+
+## 🔸 Phase 2: Matrix-Matrix Multiplication (GEMM)
+
+The current evolution stage. Unlike GEMV, GEMM is compute-bound and requires aggressive cache reuse.
+
+### GEMM Strategy: Tiling & Packing
+* **L1-Friendly Tiling:** Matrices are processed in $64 \times 64$ blocks to stay within the fastest cache layers.
+* **On-the-fly Packing:** Transposing the "B" matrix tiles into a contiguous "SRAM" buffer during the load phase to ensure purely linear memory access.
+* **Spatial Locality:** Maximizing cache hits by aligning data access with the hardware prefetcher.
+
+### GEMM Performance:
+**Matrix Size:** $1025 \times 1025$ | **Single Thread (Baseline)**
+
+| Algorithm | Execution Time | Speedup | Notes |
+| :--- | :--- | :--- | :--- |
+| **Naive GEMM** | 2639.66 ms | 1.00x | Heavy Cache Misses |
+| **Naive Transpose** | 1265.07 ms | 2.09x | Global DDR Transpose |
+| **Tiled Packed** | 759.68 ms | **3.47x** | Optimized Cache Reuse |
 
 ---
 
 ## 🚀 Getting Started
 
-### Prerequisites
-* A CPU supporting **AVX2** and **FMA** instructions.
-* A C++20 compliant compiler (GCC 10+, Clang 11+, or MSVC 2019+).
-* **CMake** 3.10 or higher.
-
-### Compilation & Build
-Using the provided `CMakeLists.txt`:
-
+### Compilation
 ```bash
 mkdir build && cd build
 cmake ..
 make
 ```
 
-### Running the Benchmark
-```Bash
-./app
-```
+## Running Benchmarks
+* GEMV: `./gemv_app`
 
-## 📊 Performance Benchmark Results
-The engine remains highly efficient even when dealing with unaligned, non-power-of-two matrix dimensions, thanks to the dynamic tail handling.
-
-**Matrix Size:** $10013 \times 12452$  
-**CPU Cores:** 4
-
-| Implementation | Execution Time | Speedup |
-| :--- | :--- | :--- |
-| **Naive (1 Thread)** | 188.86 ms | Baseline (1.0x) |
-| **SIMD (1 Thread)** | 93.17 ms | ~2.03x |
-| **SIMD (4 Threads)** | 54.40 ms | **~3.47x** |
+* GEMM: `./gemm_bench`
 
 
-**Matrix Size:** $8192 \times 8192$  
-**CPU Cores:** 4
+### 📂 Roadmap
+[x] Phase 1: Optimized GEMV with Double Buffering.
 
-| Implementation | Execution Time | Speedup |
-| :--- | :--- | :--- |
-| **Naive (1 Thread)** | 162.60 ms | Baseline (1.0x) |
-| **SIMD (1 Thread)** | 111.47 ms | ~1.46x |
-| **SIMD (4 Threads)** | 51.25 ms | **~3.17x** |
+[x] Phase 2a: Tiled GEMM with On-the-fly Packing (Tail handling included).
 
-> **Verification:** All results were verified against the baseline to ensure mathematical consistency across optimized kernels.
+[ ] Phase 2b: SIMD Kernel Sharpening (AVX2/FMA & Broadcasting).
 
----
-
-## 📂 Project Structure
-
-* **`WeightLoader`**: Simulates the hardware buffer (SRAM) and DMA logic, managing atomic state transitions.
-* **`ParallelExecutor`**: Manages thread lifecycle, workload partitioning, and high-resolution timing.
-* **`ComputeStrategy`**: An abstract interface defining the contract for various computation kernels.
-* **`Strategies`**: Concrete implementations of the `ComputeStrategy`, including the SIMD/FMA optimized kernel and the scalar baseline.
+[ ] Phase 2c: Multi-threaded GEMM Grid Execution.

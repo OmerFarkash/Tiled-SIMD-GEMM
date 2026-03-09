@@ -1,4 +1,4 @@
-#include "ParallelExecutor.hpp"
+#include "../../include/core/ParallelExecutor.hpp"
 
 double ParallelExecutor::run(ComputeStrategy& strategy, int num_threads, int total_rows, 
                             float* matrix, float* inputs, float* output, int full_width) {

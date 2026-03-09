@@ -2,8 +2,8 @@
 #include <vector>
 #include <thread>
 #include <chrono>
-#include "ComputeStrategy.hpp"
-#include "WeightLoader.hpp"
+#include "../gemv/ComputeStrategy.hpp"
+#include "../gemv/WeightLoader.hpp"
 
 class ParallelExecutor {
 public:

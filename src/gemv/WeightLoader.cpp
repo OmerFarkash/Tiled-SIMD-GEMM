@@ -1,4 +1,4 @@
-#include "WeightLoader.hpp"
+#include "../../include/gemv/WeightLoader.hpp"
 
 WeightLoader::WeightLoader() {
     sram_buffer_state[0].store(FREE);
