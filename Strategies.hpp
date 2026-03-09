@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include "ComputeStrategy.hpp"
 
 class SIMDMatrixVectorStrategy : public ComputeStrategy {

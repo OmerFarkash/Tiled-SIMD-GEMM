@@ -1,7 +1,4 @@
 #include "ParallelExecutor.hpp"
-#include <thread>
-#include <chrono>
-#include <vector>
 
 double ParallelExecutor::run(ComputeStrategy& strategy, int num_threads, int total_rows, 
                             float* matrix, float* inputs, float* output, int full_width) {

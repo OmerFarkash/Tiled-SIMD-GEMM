@@ -1,6 +1,8 @@
 #pragma once
 #include <atomic>
 #include <cstdint>
+#include <cstring>
+#include <immintrin.h> // SIMD AVX/FMA
 
 #define FREE 0
 #define LOADING 1

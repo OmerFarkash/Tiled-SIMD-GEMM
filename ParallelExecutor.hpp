@@ -1,5 +1,7 @@
 #pragma once
 #include <vector>
+#include <thread>
+#include <chrono>
 #include "ComputeStrategy.hpp"
 #include "WeightLoader.hpp"
 

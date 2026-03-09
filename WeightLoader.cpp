@@ -1,6 +1,4 @@
 #include "WeightLoader.hpp"
-#include <cstring>
-#include <immintrin.h> // SIMD AVX/FMA
 
 WeightLoader::WeightLoader() {
     sram_buffer_state[0].store(FREE);

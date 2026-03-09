@@ -1,5 +1,4 @@
 #include "Strategies.hpp"
-#include <algorithm>
 
 void SIMDMatrixVectorStrategy::execute(int start_row, int end_row, float* matrix, float* inputs, 
                                       float* output, int full_width, WeightLoader& loader) {
