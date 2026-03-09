@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cmath>
 #include <algorithm>
+#include <immintrin.h> // Required for AVX2 intrinsics
 
 // Define tile size for the packed version
 // 64x64 is usually a sweet spot for L1/L2 cache

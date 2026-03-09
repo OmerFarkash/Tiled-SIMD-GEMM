@@ -34,23 +34,48 @@ Focuses on real-time streaming of weights using asynchronous double-buffering.
 
 ---
 
-## 🔸 Phase 2: Matrix-Matrix Multiplication (GEMM)
+## 🔸 Phase 2 & 3: Matrix-Matrix Multiplication (GEMM)
 
-The current evolution stage. Unlike GEMV, GEMM is compute-bound and requires aggressive cache reuse.
+The current evolution stage. Unlike GEMV, GEMM is heavily compute-bound and requires aggressive cache reuse and vectorization.
 
-### GEMM Strategy: Tiling & Packing
-* **L1-Friendly Tiling:** Matrices are processed in $64 \times 64$ blocks to stay within the fastest cache layers.
-* **On-the-fly Packing:** Transposing the "B" matrix tiles into a contiguous "SRAM" buffer during the load phase to ensure purely linear memory access.
-* **Spatial Locality:** Maximizing cache hits by aligning data access with the hardware prefetcher.
+### 🧠 The Paradigm Shift: Dot Product vs. Outer Product
+This engine implements a fundamental algorithmic shift to maximize hardware utilization:
 
-### GEMM Performance:
-**Matrix Size:** $1025 \times 1025$ | **Single Thread (Baseline)**
+* **Phase 2 (Dot Product Approach):** To compute a single element in the result matrix, a row of A is multiplied by a column of B. To avoid massive cache misses caused by column-wise memory access, the B matrix tile is dynamically **transposed (packed)** into the local SRAM buffer.
+* **Phase 3 (Outer Product & Broadcasting):** Utilizing AVX2 `_mm256_broadcast_ps`, the engine shifts to an outer-product formulation. A single scalar from A is broadcasted into a 256-bit register and multiplied against 8 contiguous elements of B using FMA. 
+  * **The Win:** Transposing the B tile is no longer required. The kernel processes 8 columns of the result matrix simultaneously, dramatically increasing Arithmetic Intensity and achieving a massive speedup.
 
-| Algorithm | Execution Time | Speedup | Notes |
+### 📊 GEMM Performance (Deep Learning Profile)
+Benchmarking an asymmetric, unaligned Fully Connected (FC) layer profile common in Deep Learning workloads.
+
+**Dimensions:** $M=250$ (Batch), $K=1000$ (In Features), $N=4000$ (Out Features)
+**Execution:** Single Thread (Baseline for parallel scaling) | **Optimal Cache Sweet-Spot:** 32x32 Tiles
+
+| Algorithm | Execution Time | Speedup vs Naive | Notes |
 | :--- | :--- | :--- | :--- |
-| **Naive GEMM** | 2639.66 ms | 1.00x | Heavy Cache Misses |
-| **Naive Transpose** | 1265.07 ms | 2.09x | Global DDR Transpose |
-| **Tiled Packed** | 759.68 ms | **3.47x** | Optimized Cache Reuse |
+| **Naive GEMM** | 2101.90 ms | 1.00x | Heavy Cache Misses |
+| **Naive Transpose** | 1229.57 ms | 1.71x | Global DDR Transpose |
+| **Tiled Packed Transpose (64)** | 842.83 ms | 2.49x | Phase 2: Cache Locality (Dot Product) |
+| **Tiled SIMD + Broadcast (32)** | **300.18 ms** | **7.00x** | Phase 3: Hardware Utilization (Outer Product) |
+
+*Validation: All optimized kernels are mathematically verified against the naive baseline with strict tolerance bounds.*
+
+### 🧠 Technical Deep Dive: Dot Product vs. Outer Product (Broadcasting)
+
+This project showcases the transition between two fundamental execution patterns in GEMM optimization:
+
+#### 1. The Dot Product Approach (Phase 2)
+In the scalar tiled version, we calculate each element $C[i][j]$ individually:
+* **The Operation:** $C[i][j] = \sum (A[i][k] \times B[k][j])$.
+* **The Memory Challenge:** Since $B$ is stored in Row-Major order, accessing $B[k][j]$ for a fixed $j$ while incrementing $k$ results in **vertical strides** through memory, causing severe Cache Misses.
+* **The Solution:** We **transposed (packed)** the $B$ tiles into local SRAM-like buffers to ensure $B[k][j]$ elements are contiguous in memory during the dot product.
+
+#### 2. The Outer Product & Broadcasting Approach (Phase 3)
+To leverage SIMD (AVX2), we flipped the logic to update multiple elements of $C$ at once:
+* **The Operation:** One scalar $A[i][k]$ is **broadcasted** (duplicated) into a 256-bit SIMD register.
+* **Vectorized Execution:** We load **8 contiguous elements** of $B$ (from the same row $k$) into another register.
+* **FMA Acceleration:** We use `_mm256_fmadd_ps` to compute $A[i][k] \times B[k][j:j+7]$ and accumulate the result directly into 8 elements of the $C$ matrix.
+* **The Efficiency Win:** Since we are now consuming $B$ along its rows (horizontal access), **we no longer need to transpose the B-tiles**. We simply load them as-is, saving significant packing overhead and maximizing the throughput of the Arithmetic Logic Unit (ALU).
 
 ---
 
