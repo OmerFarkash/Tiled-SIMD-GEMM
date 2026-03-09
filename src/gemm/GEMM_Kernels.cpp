@@ -80,3 +80,41 @@ void gemm_tiled_packed(const Matrix& A, const Matrix& B, Matrix& C) {
         }
     }
 }
+
+// Added dynamic tile size support for cache benchmarking
+void gemm_tiled_packed_dynamic(const Matrix& A, const Matrix& B, Matrix& C, int tile_size) {
+    int N = A.rows;
+    
+    // Allocate buffer once to avoid allocation overhead in loops
+    std::vector<float> b_tile(tile_size * tile_size, 0.0f);
+
+    for (int i = 0; i < N; i += tile_size) {
+        int valid_i = std::min(tile_size, N - i);
+        
+        for (int j = 0; j < N; j += tile_size) {
+            int valid_j = std::min(tile_size, N - j);
+
+            for (int k = 0; k < N; k += tile_size) {
+                int valid_k = std::min(tile_size, N - k);
+
+                // --- PACKING STEP ---
+                for (int rr = 0; rr < valid_k; ++rr) {
+                    for (int cc = 0; cc < valid_j; ++cc) {
+                        b_tile[cc * tile_size + rr] = B.data[(k + rr) * N + (j + cc)];
+                    }
+                }
+
+                // --- COMPUTE STEP ---
+                for (int ii = 0; ii < valid_i; ++ii) {
+                    for (int jj = 0; jj < valid_j; ++jj) {
+                        float partial_sum = 0;
+                        for (int kk = 0; kk < valid_k; ++kk) {
+                            partial_sum += A.data[(i + ii) * N + (k + kk)] * b_tile[jj * tile_size + kk];
+                        }
+                        C.data[(i + ii) * N + (j + jj)] += partial_sum;
+                    }
+                }
+            }
+        }
+    }
+}
