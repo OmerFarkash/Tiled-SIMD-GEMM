@@ -9,24 +9,32 @@ find_package(Threads REQUIRED)
 # Include path for all headers
 include_directories(include)
 
+# --- Shared Core Sources ---
+# ParallelExecutor handles both GEMV and GEMM execution.
+# It requires WeightLoader.cpp to resolve dependencies for the GEMV run() overload.
+set(CORE_SOURCES
+    src/core/ParallelExecutor.cpp
+    src/gemv/WeightLoader.cpp
+)
+
 # --- Phase 1: GEMV App ---
-# Keep it separate for now
 set(GEMV_SOURCES
     apps/GEMV_Main.cpp
-    src/gemv/WeightLoader.cpp
     src/gemv/Strategies.cpp
-    src/core/ParallelExecutor.cpp
+    ${CORE_SOURCES}
 )
 
 add_executable(gemv_app ${GEMV_SOURCES})
 target_compile_options(gemv_app PRIVATE -O3 -mavx2 -mfma -Wall -Wextra)
 target_link_libraries(gemv_app PRIVATE Threads::Threads)
 
-# --- Phase 2: GEMM Benchmark ---
-# Purely GEMM logic, no core dependency for now
+# --- Phase 2 & Phase 3: GEMM Benchmark ---
+# Now includes the new SimdGemmStrategy and uses the shared core
 set(GEMM_SOURCES
     apps/GEMM_Main.cpp
     src/gemm/GEMM_Kernels.cpp
+    src/gemm/SimdGemmStrategy.cpp
+    ${CORE_SOURCES}
 )
 
 add_executable(gemm_bench ${GEMM_SOURCES})

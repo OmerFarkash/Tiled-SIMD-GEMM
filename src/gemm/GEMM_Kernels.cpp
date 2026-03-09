@@ -93,24 +93,29 @@ void gemm_tiled_packed(const Matrix& A, const Matrix& B, Matrix& C) {
     gemm_tiled_packed_dynamic(A, B, C, TILE_SIZE);
 }
 
-/* * PHASE 3: Tiled SIMD (Vectorized / Outer-Product)
- * Logic: Use _mm256_broadcast_ps. NO transpose needed for B tile.
+/* * PHASE 3: Tiled SIMD Core Kernel (Vectorized / Outer-Product)
+ * The core mathematical implementation for a specific block.
+ * Used by the Parallel Executor for multi-threading.
  */
-// SIMD Kernel with Broadcasting and Robust Tail Handling
-void gemm_tiled_simd(const Matrix& A, const Matrix& B, Matrix& C, int tile_size) {
-    int M = A.rows;
+void gemm_tiled_simd_block(const Matrix& A, const Matrix& B, Matrix& C, 
+                           int start_row, int end_row, 
+                           int start_col, int end_col, 
+                           int tile_size) {
     int K = A.cols;
     int N = B.cols;
     
     // Buffer for the B tile (Notice: NO transpose needed for broadcasting!)
     std::vector<float> b_tile(tile_size * tile_size, 0.0f);
 
-    for (int i = 0; i < M; i += tile_size) {
-        int valid_i = std::min(tile_size, M - i);
+    // Iterate only over the assigned rows for this specific block
+    for (int i = start_row; i < end_row; i += tile_size) {
+        int valid_i = std::min(tile_size, end_row - i);
         
-        for (int j = 0; j < N; j += tile_size) {
-            int valid_j = std::min(tile_size, N - j);
+        // Iterate only over the assigned columns for this specific block
+        for (int j = start_col; j < end_col; j += tile_size) {
+            int valid_j = std::min(tile_size, end_col - j);
 
+            // K dimension is shared and always fully traversed (0 to K)
             for (int k = 0; k < K; k += tile_size) {
                 int valid_k = std::min(tile_size, K - k);
 
@@ -160,4 +165,12 @@ void gemm_tiled_simd(const Matrix& A, const Matrix& B, Matrix& C, int tile_size)
             }
         }
     }
+}
+
+/* * PHASE 3 Wrapper: Tiled SIMD (Vectorized / Outer-Product)
+ * Single-threaded wrapper for backwards compatibility and single-core benchmarking.
+ */
+void gemm_tiled_simd(const Matrix& A, const Matrix& B, Matrix& C, int tile_size) {
+    // Just call the block kernel for the entire matrix dimensions
+    gemm_tiled_simd_block(A, B, C, 0, A.rows, 0, B.cols, tile_size);
 }
