@@ -1,4 +1,4 @@
-#include "Strategies.hpp"
+#include "../../include/gemv/Strategies.hpp"
 
 void SIMDMatrixVectorStrategy::execute(int start_row, int end_row, float* matrix, float* inputs, 
                                       float* output, int full_width, WeightLoader& loader) {

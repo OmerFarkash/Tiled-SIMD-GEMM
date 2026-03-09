@@ -3,10 +3,11 @@
 #include <iomanip>
 #include <cmath>
 #include <algorithm>
-#include "WeightLoader.hpp"
-#include "Strategies.hpp"
-#include "ParallelExecutor.hpp"
 #include <bits/std_thread.h>
+#include "../include/gemv/WeightLoader.hpp"
+#include "../include/gemv/Strategies.hpp"
+#include "../include/core/ParallelExecutor.hpp"
+
 
 // Utility to verify if two output vectors are identical within a small epsilon
 bool verify_results(const std::vector<float>& ref, const std::vector<float>& target, float epsilon = 1e-4f) {
