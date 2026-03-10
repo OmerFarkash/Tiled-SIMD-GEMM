@@ -3,31 +3,14 @@
 A high-performance C++ Matrix Multiplication (GEMM) and Vector (GEMV) engine optimized for modern CPU architectures. This project demonstrates significant speedups through **AVX2 SIMD Intrinsics**, **Cache-aware Tiling**, **Register-level Micro-Kernels**, and **Multi-threaded 2D Grid Partitioning**.
 
 
-## 🔹 Matrix-Vector Multiplication (GEMV)
-
-Focuses on real-time streaming of weights using asynchronous double-buffering.
-
-### GEMV Features:
-* **Double Buffering:** Overlaps I/O (loading tiles) with computation.
-* **SIMD & FMA:** Processes 8 floats per cycle using `AVX2`.
-* **Robust Tail Handling:** Supports any matrix dimension without padding.
-
-### GEMV Performance:
-**Matrix Size:** $10013 \times 12452$ | **CPU Cores:** 4
-
-| Implementation | Execution Time | Speedup |
-| :--- | :--- | :--- |
-| Naive (1 Thread) | 188.86 ms | 1.00x |
-| SIMD (1 Thread) | 93.17 ms | ~2.03x |
-| SIMD (4 Threads) | 54.40 ms | **~3.47x** |
-
----
-
 ## 🔸 Matrix-Matrix Multiplication (GEMM)
 
 Unlike GEMV, GEMM is heavily compute-bound and requires aggressive cache reuse and vectorization. The project evolves through 4 distinct optimization phases.
 
 ### GEMM Performance:
+
+![Tiled-SIMD-GEMM Optimization Journey](assets/optimization_journey.png)
+
 *Benchmark conducted on a Deep Learning FC Layer Profile (M=250, K=1000, N=4000).*
 
 | Phase | Optimization Level | Strategy | Threads | Time (ms) | Speedup |
@@ -38,7 +21,7 @@ Unlike GEMV, GEMM is heavily compute-bound and requires aggressive cache reuse a
 | **3** | **Vectorized** | SIMD + Broadcasting | 1 | ~245 | 9.93x |
 | **3** | **Parallel** | 2D Grid SIMD Engine | 4 | ~138 | 17.53x |
 | **4** | **Register Tile** | MR×NR Micro-Kernel (4×16) | 1 | **~105** | **22.97x** |
-| **4** | **Register Tile + Parallel (Optimal)** | **MR×NR + 2D Grid** | **4** | **~57** | **~42.47x** |
+| **4** | **Register Tile + Parallel (Optimal)** | **MR×NR + 2D Grid** | **4** | **~57** | **42.47x** |
 
 *Note: The single-thread Phase 4 register-tile kernel fully surpasses the 4-thread Phase 3 SIMD baseline.*
 
@@ -116,10 +99,31 @@ To leverage SIMD (AVX2), we flipped the logic to update multiple elements of $C$
 
 ---
 
+## 🔹 Matrix-Vector Multiplication (GEMV)
+
+Focuses on real-time streaming of weights using asynchronous double-buffering.
+
+### GEMV Features:
+* **Double Buffering:** Overlaps I/O (loading tiles) with computation.
+* **SIMD & FMA:** Processes 8 floats per cycle using `AVX2`.
+* **Robust Tail Handling:** Supports any matrix dimension without padding.
+
+### GEMV Performance:
+**Matrix Size:** $10013 \times 12452$ | **CPU Cores:** 4
+
+| Implementation | Execution Time | Speedup |
+| :--- | :--- | :--- |
+| Naive (1 Thread) | 188.86 ms | 1.00x |
+| SIMD (1 Thread) | 93.17 ms | ~2.03x |
+| SIMD (4 Threads) | 54.40 ms | **~3.47x** |
+
+---
+
 ## 📂 Project Structure
 ```text
 .
 ├── apps/               # Benchmark drivers (GEMM_Main, GEMV_Main)
+├── assets/             # Media and visual aids (infographics)
 ├── include/
 │   ├── core/           # ParallelExecutor (The 2D Grid Engine)
 │   ├── gemm/           # Strategy interfaces, SIMD Kernels & Micro-Kernel
